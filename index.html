@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Generator from Images</title>
+    <!-- Import Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Import OrbitControls for camera manipulation -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #3a506b;
+            margin-bottom: 30px;
+        }
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .upload-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            transition: all 0.3s ease;
+        }
+        .upload-container:hover {
+            border-color: #3a506b;
+        }
+        .upload-label {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #3a506b;
+            font-weight: 500;
+        }
+        .file-input {
+            display: none;
+        }
+        .upload-btn {
+            padding: 12px 20px;
+            background-color: #3a506b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+        }
+        .upload-btn:hover {
+            background-color: #2d3e50;
+        }
+        .preview-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .preview-image {
+            max-width: 300px;
+            max-height: 300px;
+            display: none;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .generate-btn {
+            padding: 14px 25px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+            align-self: center;
+            display: none;
+        }
+        .generate-btn:hover {
+            background-color: #3e8e41;
+        }
+        .model-viewer {
+            width: 100%;
+            height: 400px;
+            background-color: #222;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+            margin-top: 20px;
+        }
+        .download-btn {
+            padding: 14px 25px;
+            background-color: #1E88E5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+            align-self: center;
+            display: none;
+        }
+        .download-btn:hover {
+            background-color: #1565C0;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            font-size: 20px;
+            display: none;
+        }
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3a506b;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-container {
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+        .status-success {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            color: #2e7d32;
+        }
+        .status-error {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+            color: #c62828;
+        }
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-left: 4px solid #1E88E5;
+            border-radius: 4px;
+            color: #0d47a1;
+        }
+        code {
+            display: block;
+            white-space: pre-wrap;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        /* Additional styles for better UI */
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            color: #3a506b;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .log-container {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            display: none;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+        .toggle-logs-btn {
+            background-color: #607D8B;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .toggle-logs-btn:hover {
+            background-color: #455A64;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 7px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 10px;
+            margin-right: 5px;
+        }
+        .badge-info {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+        }
+        .badge-success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .badge-error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>3D Model Generator from Images</h1>
+
+        <div class="app-container">
+            <div class="upload-container">
+                <span class="upload-label">Upload an image or GIF of the model you want to create:</span>
+                <input type="file" id="fileInput" class="file-input" accept="image/*">
+                <button id="uploadButton" class="upload-btn">Choose File</button>
+                <div class="preview-container">
+                    <img id="previewImage" class="preview-image" alt="Preview">
+                </div>
+            </div>
+
+            <div class="controls-row">
+                <button id="generateButton" class="generate-btn">Generate 3D Model</button>
+                <button id="downloadButton" class="download-btn">Download STL File</button>
+            </div>
+
+            <div id="statusContainer" class="status-container"></div>
+
+            <div class="section-title">3D Model Preview</div>
+            <div id="modelViewer" class="model-viewer">
+                <div id="modelLoadingIndicator" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; z-index: 10;">
+                    <div class="spinner" style="margin: 0 auto 15px auto; width: 40px; height: 40px;"></div>
+                    <p>Generating 3D model...</p>
+                    <p style="font-size: 14px; opacity: 0.8;">This may take 10-20 seconds</p>
+                </div>
+            </div>
+
+            <button id="toggleLogsBtn" class="toggle-logs-btn">Show Debug Logs</button>
+            <div id="logContainer" class="log-container"></div>
+        </div>
+
+        <div class="instructions">
+            <p><strong>How it works:</strong></p>
+            <ol>
+                <li>Upload an image of a 3D object (like a Minecraft character or animal)</li>
+                <li>Click "Generate 3D Model" to process the image</li>
+                <li>The 3D model will be displayed in the viewer</li>
+                <li>Click "Download STL File" to save for 3D printing</li>
+            </ol>
+            <p><strong>Notes:</strong></p>
+            <ul>
+                <li>This demo connects to a local backend server that communicates with Claude API</li>
+                <li>Make sure the backend server is running on http://localhost:3000</li>
+                <li>If a backend error occurs, a fallback Minecraft horse model will be displayed</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p id="loadingText">Processing your image with AI...</p>
+    </div>
+
+    <script>
+        // Main application code
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const fileInput = document.getElementById('fileInput');
+            const uploadButton = document.getElementById('uploadButton');
+            const previewImage = document.getElementById('previewImage');
+            const generateButton = document.getElementById('generateButton');
+            const modelViewer = document.getElementById('modelViewer');
+            const downloadButton = document.getElementById('downloadButton');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            const statusContainer = document.getElementById('statusContainer');
+            const toggleLogsBtn = document.getElementById('toggleLogsBtn');
+            const logContainer = document.getElementById('logContainer');
+
+            // Initialize log container
+            toggleLogsBtn.addEventListener('click', function() {
+                if (logContainer.style.display === 'block') {
+                    logContainer.style.display = 'none';
+                    toggleLogsBtn.textContent = 'Show Debug Logs';
+                } else {
+                    logContainer.style.display = 'block';
+                    toggleLogsBtn.textContent = 'Hide Debug Logs';
+                }
+            });
+
+            // Custom logging function
+            function logMessage(message, type = 'info') {
+                console.log(message);
+
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+
+                const timestamp = new Date().toLocaleTimeString();
+                const badge = document.createElement('span');
+                badge.className = `badge badge-${type}`;
+                badge.textContent = type.toUpperCase();
+
+                logEntry.innerHTML = `${badge} [${timestamp}] ${message}`;
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            // Three.js variables
+            let scene, camera, renderer, controls;
+            let currentModel = null;
+            let generatedCode = '';
+
+            // Setup file upload
+            uploadButton.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+
+                    reader.onload = function(event) {
+                        previewImage.src = event.target.result;
+                        previewImage.style.display = 'block';
+                        generateButton.style.display = 'block';
+
+                        // Reset the model viewer if it's already showing
+                        if (renderer) {
+                            modelViewer.style.display = 'none';
+                            downloadButton.style.display = 'none';
+
+                            // Clear previous model
+                            if (currentModel) {
+                                scene.remove(currentModel);
+                                currentModel = null;
+                            }
+                        }
+                    };
+
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            function initScene() {
+                // Create scene, camera, renderer
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x333333);
+
+                camera = new THREE.PerspectiveCamera(75, modelViewer.clientWidth / modelViewer.clientHeight, 0.1, 1000);
+                camera.position.set(5, 5, 5);
+
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(modelViewer.clientWidth, modelViewer.clientHeight);
+
+                // Clear the model viewer container and add the renderer
+                while (modelViewer.firstChild) {
+                    modelViewer.removeChild(modelViewer.firstChild);
+                }
+                modelViewer.appendChild(renderer.domElement);
+
+                // Add lighting
+                const ambientLight = new THREE.AmbientLight(0x888888);
+                scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(1, 1, 1).normalize();
+                scene.add(directionalLight);
+
+                // Add grid and axes helpers
+                const gridHelper = new THREE.GridHelper(10, 10);
+                scene.add(gridHelper);
+
+                const axesHelper = new THREE.AxesHelper(5);
+                scene.add(axesHelper);
+
+                // Add orbit controls
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.25;
+
+                // Start animation loop
+                function animate() {
+                    requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.render(scene, camera);
+                }
+                animate();
+
+                // Create a function to handle resize
+                function handleResize() {
+                    if (renderer) {
+                        camera.aspect = modelViewer.clientWidth / modelViewer.clientHeight;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(modelViewer.clientWidth, modelViewer.clientHeight);
+                        renderer.render(scene, camera);
+                    }
+                }
+
+                // Handle window resize
+                window.addEventListener('resize', handleResize);
+
+                // Make viewer visible
+                modelViewer.style.display = 'block';
+
+                // IMPORTANT: Force a resize and render after making the viewer visible
+                setTimeout(() => {
+                    handleResize();
+                    renderer.render(scene, camera);
+                }, 10);
+            }
+
+            // Generate 3D model button click handler
+            generateButton.addEventListener('click', async function() {
+                // Show loading overlay
+                loadingOverlay.style.display = 'flex';
+                loadingText.textContent = 'Processing your image...';
+
+                try {
+                    // Get base64 image data
+                    const imageData = previewImage.src;
+
+                    // Initialize Three.js scene if not already initialized
+                    if (!renderer) {
+                        initScene();
+                    } else {
+                        // Clear previous model
+                        if (currentModel) {
+                            scene.remove(currentModel);
+                            currentModel = null;
+                        }
+
+                        // Always make sure model viewer is visible
+                        modelViewer.style.display = 'block';
+
+                        // Force a resize and render
+                        if (renderer) {
+                            camera.aspect = modelViewer.clientWidth / modelViewer.clientHeight;
+                            camera.updateProjectionMatrix();
+                            renderer.setSize(modelViewer.clientWidth, modelViewer.clientHeight);
+                            renderer.render(scene, camera);
+                        }
+                    }
+
+                    // Call function to generate 3D model code based on the image
+                    const modelCode = await generateModelCodeFromImage(imageData);
+
+                    // Update loading message
+                    loadingText.textContent = 'Creating 3D model...';
+
+                    // Create the 3D model from the code
+                    const modelCreated = createModelFromCode(modelCode);
+
+                    // Show the download button
+                    downloadButton.style.display = 'block';
+
+                    // Show appropriate status message
+                    if (modelCreated) {
+                        showStatus('Model generated successfully! You can now download the STL file.', 'success');
+                        logMessage('Model created successfully from Claude-generated code', 'success');
+                    } else {
+                        showStatus('Using fallback model. You can still download the STL file.', 'info');
+                        logMessage('Using fallback horse model instead', 'info');
+                    }
+
+                } catch (error) {
+                    console.error('Error generating model:', error);
+                    showStatus(`Error encountered: ${error.message}. Using horse fallback.`, 'error');
+                    logMessage(`Error: ${error.message}. Using horse fallback model.`, 'error');
+
+                    // Always show the model (fallback horse in this case)
+                    createFallbackHorseModel();
+
+                    // Show the download button for the fallback model
+                    downloadButton.style.display = 'block';
+
+                } finally {
+                    // Hide loading overlay
+                    loadingOverlay.style.display = 'none';
+                }
+            });
+
+            // Download STL button click handler
+            downloadButton.addEventListener('click', function() {
+                if (scene && currentModel) {  // Check if currentModel exists
+                    loadingOverlay.style.display = 'flex';
+                    loadingText.textContent = 'Generating STL file...';
+
+                    // Small delay to allow the UI to update
+                    setTimeout(() => {
+                        try {
+                            generateAndDownloadSTL();
+                            showStatus('STL file downloaded successfully!', 'success');
+                        } catch (error) {
+                            console.error('Error generating STL:', error);
+                            showStatus(`Error generating STL: ${error.message}`, 'error');
+                        } finally {
+                            loadingOverlay.style.display = 'none';
+                        }
+                    }, 100);
+                } else {
+                    showStatus('No model to download. Please generate a model first.', 'error');
+                }
+            });
+
+            async function generateModelCodeFromImage(imageData) {
+                try {
+                    loadingText.textContent = "Sending image to backend server...";
+
+                    // First, verify the backend server is running
+                    try {
+                        const testResponse = await fetch('http://localhost:3000/api/test');
+                        if (!testResponse.ok) {
+                            throw new Error("Backend server test failed");
+                        }
+                        logMessage("Backend server is running", 'success');
+                    } catch (e) {
+                        throw new Error("Cannot connect to backend server. Is it running on http://localhost:3000?");
+                    }
+
+                    // Extract proper content type and base64 data
+                    let contentType = 'image/jpeg'; // Default
+                    let base64Image = '';
+
+                    if (imageData.startsWith('data:')) {
+                        // Extract content type from data URL
+                        const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
+                        if (matches && matches.length === 3) {
+                            contentType = matches[1];
+                            base64Image = matches[2];
+                            logMessage(`Detected image format: ${contentType}`, 'info');
+                        } else {
+                            throw new Error("Invalid image data format");
+                        }
+                    } else {
+                        // If it's not a data URL, assume it's already base64
+                        base64Image = imageData;
+                    }
+
+                    // Use the backend proxy server instead of calling Claude API directly
+                    logMessage("Sending image to local backend server...", 'info');
+                    loadingText.textContent = "Analyzing image with Claude AI (this may take up to a minute)...";
+
+                    try {
+                        // Send request to local backend server
+                        const response = await fetch('http://localhost:3000/api/claude', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                image: base64Image,
+                                contentType: contentType
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            console.error('Backend server error:', errorData);
+                            throw new Error(`Backend error: ${response.status} ${response.statusText}`);
+                        }
+
+                        const data = await response.json();
+
+                        if (data.modelCode) {
+                            // Save the generated code for later use
+                            generatedCode = data.modelCode;
+                            logMessage("Received code from Claude via backend server", 'success');
+
+                            return data.modelCode;
+                        } else if (data.error) {
+                            throw new Error(`API error: ${data.error}`);
+                        } else {
+                            throw new Error('No model code in response');
+                        }
+
+                    } catch (error) {
+                        console.error('Error communicating with backend server:', error);
+                        throw error;
+                    }
+
+                } catch (error) {
+                    console.error('Error in model generation:', error);
+
+                    // Provide a helpful error message
+                    if (error.message.includes('Failed to fetch') || error.message.includes('Cannot connect to backend')) {
+                        showStatus('Cannot connect to backend server. Is it running on http://localhost:3000?', 'error');
+                        logMessage(`Backend server connection error: ${error.message}. Using horse model fallback.`, 'error');
+                    } else {
+                        showStatus(`Error: ${error.message}. Using horse model fallback.`, 'error');
+                        logMessage(`API error: ${error.message}. Using horse model fallback.`, 'error');
+                    }
+
+                    // Always use the horse fallback model
+                    createFallbackHorseModel();
+                    return generatedCode; // The horse model code is now in generatedCode
+                }
+            }
+
+            // Function to create 3D model from code
+            function createModelFromCode(code) {
+                try {
+                    // Always ensure model viewer is visible
+                    modelViewer.style.display = 'block';
+
+                    // Create a group to hold all parts of the model
+                    if (currentModel) {
+                        scene.remove(currentModel);
+                    }
+                    currentModel = new THREE.Group();
+                    scene.add(currentModel);
+
+                    // Sanitize and prepare the code for execution
+                    // First, check if the addCube function is already defined in the code
+                    if (!code.includes('function addCube')) {
+                        // If not, add the function definition to the beginning of the code
+                        code = `
+                        // Function to add a cube with the given dimensions and position
+                        function addCube(x, y, z, width, height, depth, color) {
+                            const geometry = new THREE.BoxGeometry(width, height, depth);
+                            const material = new THREE.MeshStandardMaterial({ color: color });
+                            const cube = new THREE.Mesh(geometry, material);
+                            cube.position.set(x, y, z);
+                            scene.add(cube);
+                            return cube;
+                        }
+
+                        ${code}`;
+                    }
+
+                    // Replace "scene.add" with "currentModel.add" in the code to keep everything in our group
+                    let modifiedCode = code.replace(/scene\.add/g, "currentModel.add");
+
+                    // Fix common issues in Claude-generated code
+                    // Replace color names with hex values if needed
+                    const colorMap = {
+                        'red': '0xFF0000',
+                        'green': '0x00FF00',
+                        'blue': '0x0000FF',
+                        'yellow': '0xFFFF00',
+                        'cyan': '0x00FFFF',
+                        'magenta': '0xFF00FF',
+                        'white': '0xFFFFFF',
+                        'black': '0x000000',
+                        'gray': '0x808080',
+                        'brown': '0x8B4513'
+                    };
+
+                    // Replace color names with hex values
+                    for (const [name, hex] of Object.entries(colorMap)) {
+                        const regex = new RegExp(`'${name}'|"${name}"`, 'gi');
+                        modifiedCode = modifiedCode.replace(regex, hex);
+                    }
+
+                    // Remove any markdown formatting that might have been included
+                    modifiedCode = modifiedCode.replace(/```javascript|```js|```|<code>|<\/code>/g, '');
+
+                    // Add safety check for undefined variables
+                    const safeExecution = `
+                        try {
+                            ${modifiedCode}
+                        } catch (e) {
+                            console.error("Error in model code:", e);
+                            throw e; // Re-throw to trigger fallback
+                        }
+                    `;
+
+                    // Create a function that executes the code with access to the scene and currentModel
+                    const executeCode = new Function('scene', 'currentModel', 'THREE', safeExecution);
+                    executeCode(scene, currentModel, THREE);
+
+                    // If the model is empty (no children), use the horse fallback
+                    if (currentModel.children.length === 0) {
+                        logMessage("Model has no children, using horse fallback", 'info');
+                        createFallbackHorseModel();
+                        return false;
+                    }
+
+                    // Center the camera on the model
+                    centerCameraOnModel();
+
+                    return true;
+
+                } catch (error) {
+                    console.error('Error executing model code:', error);
+                    logMessage(`Error creating model: ${error.message}. Using horse fallback.`, 'error');
+
+                    // Use the horse fallback model
+                    createFallbackHorseModel();
+                    return false;
+                }
+            }
+
+            // Function to create the fallback horse model
+            function createFallbackHorseModel() {
+                // Clear any existing model
+                if (currentModel) {
+                    scene.remove(currentModel);
+                }
+                currentModel = new THREE.Group();
+                scene.add(currentModel);
+
+                // Use the horse model code
+                const horseModelCode = `
+                    // Function to add a cube with the given dimensions and position
+                    function addCube(x, y, z, width, height, depth, color) {
+                        const geometry = new THREE.BoxGeometry(width, height, depth);
+                        const material = new THREE.MeshStandardMaterial({ color: color });
+                        const cube = new THREE.Mesh(geometry, material);
+                        cube.position.set(x, y, z);
+                        currentModel.add(cube);
+                        return cube;
+                    }
+
+                    // Horse colors based on Minecraft palette
+                    const bodyColor = 0x8B4513; // saddlebrown
+                    const maneColor = 0xCD853F; // peru
+                    const wingColor = 0xDEB887; // burlywood
+
+                    // Horse Body - main rectangular shape
+                    addCube(0, 0, 0, 12, 6, 24, bodyColor);
+
+                    // Neck
+                    addCube(-3, 9, 12, 8, 14, 8, bodyColor);
+
+                    // Head
+                    addCube(-4, 21, 12, 12, 10, 10, bodyColor);
+
+                    // Snout
+                    addCube(4, 21, 12, 8, 6, 8, 0x6B4423);
+
+                    // Eyes - positioned higher on the head
+                    const leftEye = addCube(-5, 24, 7, 3, 3, 1, 0xFFFFFF);
+                    const leftPupil = addCube(-5, 24, 6.5, 1, 1, 1, 0x000000);
+
+                    const rightEye = addCube(-5, 24, 17, 3, 3, 1, 0xFFFFFF);
+                    const rightPupil = addCube(-5, 24, 17.5, 1, 1, 1, 0x000000);
+
+                    // Ears
+                    addCube(-7, 28, 9, 2, 4, 2, 0x6B4423);
+                    addCube(-7, 28, 15, 2, 4, 2, 0x6B4423);
+
+                    // Mane (several blocks to create the flowing effect)
+                    for (let i = 0; i < 5; i++) {
+                        addCube(-8 - i, 15 + i * 1.5, 12, 2, 10 - i, 2, maneColor);
+                    }
+
+                    // Legs
+                    addCube(-6, -9, 6, 4, 12, 4, bodyColor);
+                    addCube(-6, -9, 18, 4, 12, 4, bodyColor);
+                    addCube(6, -9, 6, 4, 12, 4, bodyColor);
+                    addCube(6, -9, 18, 4, 12, 4, bodyColor);
+
+                    // Tail (several blocks positioned to create a blocky curve)
+                    for (let i = 0; i < 5; i++) {
+                        const angle = i * 10 * (Math.PI / 180);
+                        const x = 12 + i * 1.5 * Math.sin(angle);
+                        const y = 3 - i * 0.8 * Math.cos(angle);
+                        addCube(x, y, 12, 2, 2, 2, maneColor);
+                    }
+
+                    // Wings - Left wing
+                    const leftWing = new THREE.Group();
+                    currentModel.add(leftWing);
+
+                    for (let i = 0; i < 3; i++) {
+                        const wingSection = addCube(8 + i * 4, 3, 8 - i * 2, 16 - i * 4, 2, 4, wingColor);
+                        currentModel.remove(wingSection);
+                        leftWing.add(wingSection);
+                    }
+
+                    leftWing.rotation.z = Math.PI / 6; // Angle the wing upward
+
+                    // Right wing
+                    const rightWing = new THREE.Group();
+                    currentModel.add(rightWing);
+
+                    for (let i = 0; i < 3; i++) {
+                        const wingSection = addCube(8 + i * 4, 3, 16 + i * 2, 16 - i * 4, 2, 4, wingColor);
+                        currentModel.remove(wingSection);
+                        rightWing.add(wingSection);
+                    }
+
+                    rightWing.rotation.z = Math.PI / 6; // Angle the wing upward
+
+                    // Add a base for 3D printing stability
+                    addCube(0, -15, 12, 20, 1, 24, 0x333333);
+                `;
+
+                try {
+                    // Create a function that executes the code with access to the scene and currentModel
+                    const executeCode = new Function('scene', 'currentModel', 'THREE', horseModelCode);
+                    executeCode(scene, currentModel, THREE);
+
+                    // Center the camera on the horse model
+                    centerCameraOnModel();
+
+                    // Save the horse code as the generated code for STL export
+                    generatedCode = horseModelCode;
+
+                    // Always show the model viewer
+                    modelViewer.style.display = 'block';
+
+                } catch (error) {
+                    console.error('Error creating fallback horse model:', error);
+                    logMessage(`Error creating fallback horse model: ${error.message}`, 'error');
+                }
+            }
+
+            // Function to center camera on the current model
+            function centerCameraOnModel() {
+                if (!currentModel) return;
+
+                // Center the camera on the model
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+
+                // Reset camera position based on model size
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const fov = camera.fov * (Math.PI / 180);
+                let cameraZ = Math.abs(maxDim / Math.sin(fov / 2));
+
+                // Add a buffer to ensure the model fits in view
+                cameraZ *= 1.5;
+
+                // Set camera to look at center of the model
+                camera.position.set(center.x + cameraZ * 0.5, center.y + cameraZ * 0.5, center.z + cameraZ * 0.5);
+                camera.lookAt(center);
+                camera.updateProjectionMatrix();
+                controls.target.copy(center);
+                controls.update();
+            }
+
+            // Function to show status messages
+            function showStatus(message, type) {
+                statusContainer.textContent = message;
+                statusContainer.className = 'status-container';
+                statusContainer.classList.add(type === 'error' ? 'status-error' : 'status-success');
+                statusContainer.style.display = 'block';
+            }
+
+            function generateAndDownloadSTL() {
+                // Make sure currentModel exists
+                if (!currentModel) {
+                    throw new Error("No model exists to download");
+                }
+
+                // Define the STLExporter class
+                class STLExporter {
+                    parse(scene, options = {}) {
+                        options = Object.assign({
+                            binary: false
+                        }, options);
+
+                        const binary = options.binary;
+                        const objects = [];
+                        let triangles = 0;
+
+                        scene.traverse(function(object) {
+                            if (object.isMesh && object.visible) {
+                                const geometry = object.geometry;
+
+                                if (geometry.isBufferGeometry) {
+                                    const index = geometry.index;
+                                    const positionAttribute = geometry.getAttribute('position');
+
+                                    if (index !== null) {
+                                        // indexed geometry
+                                        for (let i = 0; i < index.count; i += 3) {
+                                            triangles++;
+                                        }
+                                    } else {
+                                        // non-indexed geometry
+                                        for (let i = 0; i < positionAttribute.count; i += 3) {
+                                            triangles++;
+                                        }
+                                    }
+                                }
+
+                                objects.push({
+                                    object3d: object,
+                                    geometry: geometry
+                                });
+                            }
+                        });
+
+                        let outputString = '';
+                        let outputBinary = null;
+                        let offset = 80; // skip header
+
+                        if (binary) {
+                            const bufferLength = triangles * 2 + triangles * 3 * 4 * 4 + 80 + 4;
+                            const arrayBuffer = new ArrayBuffer(bufferLength);
+                            outputBinary = new DataView(arrayBuffer);
+                            outputBinary.setUint32(offset, triangles, true);
+                            offset += 4;
+                        } else {
+                            outputString = 'solid exported\n';
+                        }
+
+                        const ke = new THREE.Vector3();
+                        const cb = new THREE.Vector3();
+                        const ab = new THREE.Vector3();
+                        const vA = new THREE.Vector3();
+                        const vB = new THREE.Vector3();
+                        const vC = new THREE.Vector3();
+
+                        for (let i = 0, il = objects.length; i < il; i++) {
+                            const object = objects[i].object3d;
+                            const geometry = objects[i].geometry;
+                            const index = geometry.index;
+                            const positionAttribute = geometry.getAttribute('position');
+
+                            const matrixWorld = object.matrixWorld;
+
+                            if (index !== null) {
+                                // indexed geometry
+                                for (let j = 0; j < index.count; j += 3) {
+                                    const a = index.getX(j);
+                                    const b = index.getX(j + 1);
+                                    const c = index.getX(j + 2);
+
+                                    writeTriangle(a, b, c, positionAttribute, matrixWorld);
+                                }
+                            } else {
+                                // non-indexed geometry
+                                for (let j = 0; j < positionAttribute.count; j += 3) {
+                                    const a = j;
+                                    const b = j + 1;
+                                    const c = j + 2;
+
+                                    writeTriangle(a, b, c, positionAttribute, matrixWorld);
+                                }
+                            }
+                        }
+
+                        if (!binary) {
+                            outputString += 'endsolid exported\n';
+                        }
+
+                        return binary ? outputBinary.buffer : outputString;
+
+                        function writeTriangle(a, b, c, positionAttribute, matrixWorld) {
+                            vA.fromBufferAttribute(positionAttribute, a);
+                            vB.fromBufferAttribute(positionAttribute, b);
+                            vC.fromBufferAttribute(positionAttribute, c);
+
+                            vA.applyMatrix4(matrixWorld);
+                            vB.applyMatrix4(matrixWorld);
+                            vC.applyMatrix4(matrixWorld);
+
+                            cb.subVectors(vC, vB);
+                            ab.subVectors(vA, vB);
+                            cb.cross(ab).normalize();
+
+                            if (binary) {
+                                // Normal
+                                outputBinary.setFloat32(offset, cb.x, true); offset += 4;
+                                outputBinary.setFloat32(offset, cb.y, true); offset += 4;
+                                outputBinary.setFloat32(offset, cb.z, true); offset += 4;
+
+                                // Vertices
+                                outputBinary.setFloat32(offset, vA.x, true); offset += 4;
+                                outputBinary.setFloat32(offset, vA.y, true); offset += 4;
+                                outputBinary.setFloat32(offset, vA.z, true); offset += 4;
+
+                                outputBinary.setFloat32(offset, vB.x, true); offset += 4;
+                                outputBinary.setFloat32(offset, vB.y, true); offset += 4;
+                                outputBinary.setFloat32(offset, vB.z, true); offset += 4;
+
+                                outputBinary.setFloat32(offset, vC.x, true); offset += 4;
+                                outputBinary.setFloat32(offset, vC.y, true); offset += 4;
+                                outputBinary.setFloat32(offset, vC.z, true); offset += 4;
+
+                                // attribute byte count
+                                outputBinary.setUint16(offset, 0, true); offset += 2;
+                            } else {
+                                outputString += '\tfacet normal ' + cb.x + ' ' + cb.y + ' ' + cb.z + '\n';
+                                outputString += '\t\touter loop\n';
+                                outputString += '\t\t\tvertex ' + vA.x + ' ' + vA.y + ' ' + vA.z + '\n';
+                                outputString += '\t\t\tvertex ' + vB.x + ' ' + vB.y + ' ' + vB.z + '\n';
+                                outputString += '\t\t\tvertex ' + vC.x + ' ' + vC.y + ' ' + vC.z + '\n';
+                                outputString += '\t\tendloop\n';
+                                outputString += '\tendfacet\n';
+                            }
+                        }
+                    }
+                }
+
+                // Create a new scene for STL export
+                const tempScene = new THREE.Scene();
+
+                // IMPORTANT FIX: Don't add currentModel directly to tempScene
+                // Instead, create a clone of the model for the STL export
+
+                // First, let's create a deep clone of our model
+                const modelClone = new THREE.Group();
+
+                // Clone all the child meshes in the model
+                currentModel.children.forEach(child => {
+                    // Clone the child
+                    const childClone = child.clone();
+
+                    // If it's a mesh, make sure to clone its geometry and material too
+                    if (child.isMesh) {
+                        childClone.geometry = child.geometry.clone();
+                        if (Array.isArray(child.material)) {
+                            childClone.material = child.material.map(m => m.clone());
+                        } else {
+                            childClone.material = child.material.clone();
+                        }
+                    }
+
+                    // Add the cloned child to our cloned model
+                    modelClone.add(childClone);
+                });
+
+                // Now add the clone to the temporary scene
+                tempScene.add(modelClone);
+
+                // Create the exporter and export the scene
+                try {
+                    const exporter = new STLExporter();
+                    const result = exporter.parse(tempScene, { binary: true });
+
+                    // Create a blob from the STL data
+                    const blob = new Blob([result], { type: 'application/octet-stream' });
+
+                    // Create a download link and trigger the download
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'generated_3d_model.stl';
+                    link.click();
+
+                    // Clean up
+                    URL.revokeObjectURL(link.href);
+
+                    // Clean up temp scene and clone to avoid memory leaks
+                    tempScene.remove(modelClone);
+
+                    // Properly dispose geometries and materials to prevent memory leaks
+                    modelClone.traverse(function(object) {
+                        if (object.geometry) {
+                            object.geometry.dispose();
+                        }
+                        if (object.material) {
+                            if (Array.isArray(object.material)) {
+                                object.material.forEach(material => material.dispose());
+                            } else {
+                                object.material.dispose();
+                            }
+                        }
+                    });
+
+                    // Log STL file information
+                    const fileSizeKB = (blob.size / 1024).toFixed(2);
+                    logMessage(`STL file generated: ${fileSizeKB} KB`, 'success');
+
+                    return true;
+                } catch (error) {
+                    logMessage(`Error in STL export: ${error.message}`, 'error');
+                    console.error("Error in STL export:", error);
+                    throw error;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
