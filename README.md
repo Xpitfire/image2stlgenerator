@@ -1,4 +1,4 @@
-# 3D Model Generator from Images
+# 3D Minecraft Model Generator from Images
 
 This application allows you to generate 3D models from images using Claude AI. Upload an image, and Claude will analyze it and create a Three.js model that can be exported for 3D printing.
 

@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Model Generator from Images</title>
+    <title>3D Minecraft Model Generator from Images</title>
     <!-- Import Three.js from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <!-- Import OrbitControls for camera manipulation -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
         body {
             margin: 0;
             padding: 0;
@@ -110,6 +112,7 @@
             overflow: hidden;
             display: none;
             margin-top: 20px;
+            position: relative; /* Added to support absolute positioning of banner */
         }
         .download-btn {
             padding: 14px 25px;
@@ -260,6 +263,40 @@
             background-color: #ffebee;
             color: #c62828;
         }
+
+        /* Minecraft-style error banner */
+        .minecraft-error-banner {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            margin: 0 auto;
+            width: 80%;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #FF5555;
+            font-family: 'VT323', monospace;
+            font-size: 24px;
+            text-align: center;
+            padding: 12px;
+            border: 3px solid #555555;
+            z-index: 100;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            text-shadow: 2px 2px 0 #000;
+            display: none;
+
+            /* Pixelated border style like Minecraft */
+            image-rendering: pixelated;
+            border-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNWRHWFIAAABSSURBVDhPzY5JCgAgDAP9/6eldQkUl1ABwVmI26EzEXVyutocQk4h0PEWuin+9R0XBZ5cKChILGT4YzGSx+kRLiQWMxCLkTxOCgMxlrdtOd6mBU+vlcNXhWd7AAAAAElFTkSuQmCC') 4 repeat;
+            border-width: 4px;
+
+            /* Minecraft animation effect */
+            animation: minecraft-float 2s infinite ease-in-out;
+        }
+
+        @keyframes minecraft-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
     </style>
 </head>
 <body>
@@ -285,6 +322,11 @@
 
             <div class="section-title">3D Model Preview</div>
             <div id="modelViewer" class="model-viewer">
+                <!-- Add the Minecraft-style error banner here -->
+                <div id="minecraftErrorBanner" class="minecraft-error-banner">
+                    ! ERROR ! Fallback Horsi Model
+                </div>
+
                 <div id="modelLoadingIndicator" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; z-index: 10;">
                     <div class="spinner" style="margin: 0 auto 15px auto; width: 40px; height: 40px;"></div>
                     <p>Generating 3D model...</p>
@@ -333,6 +375,7 @@
             const statusContainer = document.getElementById('statusContainer');
             const toggleLogsBtn = document.getElementById('toggleLogsBtn');
             const logContainer = document.getElementById('logContainer');
+            const minecraftErrorBanner = document.getElementById('minecraftErrorBanner');
 
             // Initialize log container
             toggleLogsBtn.addEventListener('click', function() {
@@ -393,6 +436,9 @@
                                 currentModel = null;
                             }
                         }
+
+                        // Hide the error banner if it's showing
+                        minecraftErrorBanner.style.display = 'none';
                     };
 
                     reader.readAsDataURL(file);
@@ -415,6 +461,9 @@
                     modelViewer.removeChild(modelViewer.firstChild);
                 }
                 modelViewer.appendChild(renderer.domElement);
+
+                // Re-add the Minecraft error banner
+                modelViewer.appendChild(minecraftErrorBanner);
 
                 // Add lighting
                 const ambientLight = new THREE.AmbientLight(0x888888);
@@ -472,6 +521,9 @@
                 // Show loading overlay
                 loadingOverlay.style.display = 'flex';
                 loadingText.textContent = 'Processing your image...';
+
+                // Hide the error banner if it's showing
+                minecraftErrorBanner.style.display = 'none';
 
                 try {
                     // Get base64 image data
@@ -660,6 +712,9 @@
                     // Always ensure model viewer is visible
                     modelViewer.style.display = 'block';
 
+                    // Hide the error banner by default
+                    minecraftErrorBanner.style.display = 'none';
+
                     // Create a group to hold all parts of the model
                     if (currentModel) {
                         scene.remove(currentModel);
@@ -756,6 +811,9 @@
                 }
                 currentModel = new THREE.Group();
                 scene.add(currentModel);
+
+                // Show the Minecraft error banner
+                minecraftErrorBanner.style.display = 'block';
 
                 // Use the horse model code
                 const horseModelCode = `
